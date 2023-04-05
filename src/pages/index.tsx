@@ -7,54 +7,85 @@ import type { RouterOutputs } from "~/utils/api";
 import { useEffect } from "react";
 
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime"
+import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
+import LoadingSpinner from "~/components/loading";
 
-dayjs.extend(relativeTime)
+dayjs.extend(relativeTime);
 
 const CreatePostWizard = () => {
-  const { user} = useUser()
+  const { user } = useUser();
 
-  if(!user) return null
+  if (!user) return null;
 
-  console.log(user)
+  console.log(user);
 
   return (
-    <div className="flex gap-4 w-full">
-      <Image  width={56} height={56} src={user.profileImageUrl} alt='Profile image' className="rounded-full h-16 w-16"/>
-     <input placeholder="Type emojis" className="p-2 bg-transparent grow outline-none"/>
+    <div className="flex w-full gap-4">
+      <Image
+        width={56}
+        height={56}
+        src={user.profileImageUrl}
+        alt="Profile image"
+        className="h-16 w-16 rounded-full"
+      />
+      <input
+        placeholder="Type emojis"
+        className="grow bg-transparent p-2 outline-none"
+      />
     </div>
-  )
-}
+  );
+};
 
-type PostWithUser = RouterOutputs["posts"]["getAll"][number]
+type PostWithUser = RouterOutputs["posts"]["getAll"][number];
 const PostView = (props: PostWithUser) => {
-  const { post, author} = props
-  return (<div className="flex p-4 gap-4">
-     <Image src={author.profileImageUrl} alt='Profile image' width={56} height={56} className="rounded-full h-14 w-14"/>
-     <div className="flex flex-col">
-      <div className="flex text-slate-300 gap-2">
-      <span className="font-bold">{`@${author.username ? author.username : "anonymus"}`}</span><span>{`- ${dayjs(post.createdAt).fromNow()}`}</span>
+  const { post, author } = props;
+  return (
+    <div className="flex gap-4 p-4">
+      <Image
+        src={author.profileImageUrl}
+        alt="Profile image"
+        width={56}
+        height={56}
+        className="h-14 w-14 rounded-full"
+      />
+      <div className="flex flex-col">
+        <div className="flex gap-2 text-slate-300">
+          <span className="font-bold">{`@${
+            author.username ? author.username : "anonymus"
+          }`}</span>
+          <span>{`- ${dayjs(post.createdAt).fromNow()}`}</span>
+        </div>
+
+        <p>{post.content}</p>
       </div>
-      
-     <p>{post.content}</p>
-     </div>
-    
-   
-    </div>)
-}
+    </div>
+  );
+};
+
+const Feed = () => {
+  const { data, isLoading: postsLoading } = api.posts.getAll.useQuery();
+
+  if (postsLoading) return <LoadingSpinner size={60} />;
+
+  if (!data) return <div>Something went wrong</div>;
+
+  return (
+    <div>
+      {data?.map((post, i) => (
+        <PostView {...post} key={post.post.id} />
+      ))}
+    </div>
+  );
+};
 
 const Home: NextPage = () => {
+  //start fetching asap and reactQuery uses the cached data for all other requests of the same query
+  api.posts.getAll.useQuery();
 
-  const { data, isLoading } = api.posts.getAll.useQuery()
+  const { user, isLoaded: userLoaded, isSignedIn } = useUser();
 
-  const user = useUser()
-
-  console.log(data)
-
-  if(isLoading) return <div>Loading...</div>
-
-  if(!data) return <div>No posts available</div>
+  if (!userLoaded) return <div />;
 
   return (
     <>
@@ -64,16 +95,12 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className="flex h-screen justify-center">
-        <div className="h-full w-full md:max-w-2xl border-x">
-        <div className="border-b border-slate-400 p-4 flex justify-center">
-          {user.isSignedIn ? <CreatePostWizard/> : <SignInButton  /> }
+        <div className="h-full w-full border-x md:max-w-2xl">
+          <div className="flex justify-center border-b border-slate-400 p-4">
+            {isSignedIn ? <CreatePostWizard /> : <SignInButton />}
+          </div>
+          <Feed />
         </div>
-        <div>
-          {data?.map((post, i) => <PostView {...post} key={post.post.id}/>)}
-        </div>
-        </div>
-        
-      
       </main>
     </>
   );
