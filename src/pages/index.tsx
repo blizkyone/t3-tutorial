@@ -1,15 +1,16 @@
 import { type NextPage } from "next";
 import Head from "next/head";
-import { SignInButton, SignOutButton, useUser } from "@clerk/nextjs";
+import { SignInButton, useUser } from "@clerk/nextjs";
 
 import { api } from "~/utils/api";
 import type { RouterOutputs } from "~/utils/api";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
-import LoadingSpinner from "~/components/loading";
+import LoadingSpinner, { LoadingPage } from "~/components/loading";
+import toast from "react-hot-toast";
 
 dayjs.extend(relativeTime);
 
@@ -22,7 +23,15 @@ const CreatePostWizard = () => {
   const { mutate, isLoading: isPosting } = api.posts.create.useMutation({
     onSuccess: () => {
       setInput("");
-      ctx.posts.getAll.invalidate();
+      void ctx.posts.getAll.invalidate();
+    },
+    onError: (e) => {
+      const errorMessage = e.data?.zodError?.fieldErrors.content;
+      if (errorMessage && errorMessage[0]) {
+        toast.error(errorMessage[0]);
+      } else {
+        toast.error("An error has ocurred when posting your shti");
+      }
     },
   });
 
@@ -46,7 +55,17 @@ const CreatePostWizard = () => {
         onChange={(e) => setInput(e.target.value)}
         disabled={isPosting}
       />
-      <button onClick={() => mutate({ content: input })}>Post</button>
+      {input !== "" && !isPosting && (
+        <button onClick={() => mutate({ content: input })} disabled={isPosting}>
+          Post
+        </button>
+      )}
+
+      {isPosting && (
+        <div className="flex items-center">
+          <LoadingSpinner size={28} />
+        </div>
+      )}
     </div>
   );
 };
@@ -80,7 +99,7 @@ const PostView = (props: PostWithUser) => {
 const Feed = () => {
   const { data, isLoading: postsLoading } = api.posts.getAll.useQuery();
 
-  if (postsLoading) return <LoadingSpinner size={60} />;
+  if (postsLoading) return <LoadingPage size={60} />;
 
   if (!data) return <div>Something went wrong</div>;
 
